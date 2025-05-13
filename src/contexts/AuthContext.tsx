@@ -84,41 +84,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('Initial session check:', session); // Debug log
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
 
       if (currentUser) {
         setUser(currentUser);
-        const adminStatus = await checkIsAdmin(session.user.id);
+        const adminStatus = await checkIsAdmin(currentUser.id);
         setIsAdmin(adminStatus);
-        await fetchProfile(session.user.id);
-      } else if (!bypassActive || !isTestingBypassEnabled()) {
-        setUser(null);
-        setIsAdmin(false);
-        setProfile(null);
-      }
-      setSessionChecked(true);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', { event: _event, session }); // Debug log
-      const currentUser = session?.user ?? null;
-
-      if (currentUser) {
-        setUser(currentUser);
-        const adminStatus = await checkIsAdmin(session.user.id);
-        setIsAdmin(adminStatus);
-        await fetchProfile(session.user.id);
+        await fetchProfile(currentUser.id);
       } else if (!bypassActive || !isTestingBypassEnabled()) {
         setUser(null);
         setIsAdmin(false);
         setProfile(null);
         localStorage.removeItem('bypass_active');
       }
+    });
+
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const currentUser = session?.user ?? null;
+
+      if (currentUser) {
+        setUser(currentUser);
+        const adminStatus = await checkIsAdmin(currentUser.id);
+        setIsAdmin(adminStatus);
+        await fetchProfile(currentUser.id);
+      } else if (!bypassActive || !isTestingBypassEnabled()) {
+        setUser(null);
+        setIsAdmin(false);
+        setProfile(null);
+        localStorage.removeItem('bypass_active');
+      }
+      setSessionChecked(true);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
