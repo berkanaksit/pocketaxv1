@@ -13,15 +13,11 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('admin_users')
-    .select('id')
+    .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
   
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // Not an admin - this is expected for most users
-      return false;
-    }
+  if (error && error.code !== 'PGRST116') {
     console.error('Unexpected error checking admin status:', error);
     return false;
   }
