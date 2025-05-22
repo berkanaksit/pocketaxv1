@@ -77,7 +77,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initialize = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (!mounted) return;
         
         if (!session?.user) {
@@ -86,9 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         setUser(session.user);
+        await fetchProfile(session.user.id);
         const adminStatus = await checkIsAdmin(session.user.id);
         setIsAdmin(adminStatus);
-        await fetchProfile(session.user.id);
       } catch (error) {
         console.error('Error initializing auth:', error);
         clearAuthState();
@@ -108,9 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearAuthState();
       } else {
         setUser(session.user);
+        await fetchProfile(session.user.id);
         const adminStatus = await checkIsAdmin(session.user.id);
         setIsAdmin(adminStatus);
-        await fetchProfile(session.user.id);
       }
       
       setLoading(false);
