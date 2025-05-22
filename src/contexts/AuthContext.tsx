@@ -100,6 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initialize();
 
+    const subscription = supabase.auth.onAuthStateChange(async (event, session) => {
       await supabase.auth.refreshSession();
 
       if (!mounted) return;
