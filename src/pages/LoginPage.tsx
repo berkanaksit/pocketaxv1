@@ -35,6 +35,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    localStorage.clear();
 
     try {
       if (!email || !email.includes('@')) {
@@ -50,7 +51,7 @@ const LoginPage: React.FC = () => {
       }
 
       // Clear any existing sessions first
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'global' });
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
