@@ -2,13 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, checkIsAdmin } from '../lib/supabase';
 import { Database } from '../lib/database.types';
-import { isTestingBypassEnabled } from '../lib/testing';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
   profile: Database['public']['Tables']['users_profile']['Row'] | null;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   profile: null,
+  signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -25,7 +26,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Database['public']['Tables']['users_profile']['Row'] | null>(null);
-  const [initialized, setInitialized] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -53,14 +53,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setIsAdmin(false);
+      setProfile(null);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
     const initialize = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
+        if (mounted && session?.user) {
           setUser(session.user);
           const adminStatus = await checkIsAdmin(session.user.id);
           setIsAdmin(adminStatus);
@@ -70,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
-          setInitialized(true);
           setLoading(false);
         }
       }
@@ -81,16 +90,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (session?.user) {
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setIsAdmin(false);
+        setProfile(null);
+      } else if (session?.user) {
         setUser(session.user);
         const adminStatus = await checkIsAdmin(session.user.id);
         setIsAdmin(adminStatus);
         await fetchProfile(session.user.id);
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-        setProfile(null);
       }
+      setLoading(false);
     });
 
     return () => {
@@ -100,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading: loading && !initialized, isAdmin, profile }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, profile, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,8 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { isTestingBypassEnabled, validateBypassCode } from '../lib/testing';
-import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,6 +15,8 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    let mounted = true;
 
     try {
       // First check if the email is empty or invalid
@@ -33,29 +33,35 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password');
-        } else {
-          setError(error.message);
-        }
-        setLoading(false);
-        return;
+        throw error;
       }
 
-      toast.success('Welcome back!');
-      navigate('/dashboard');
+      if (mounted) {
+        if (data.session) {
+          toast.success('Welcome back!');
+          navigate('/dashboard');
+        }
+      }
     } catch (error) {
-      const message = error instanceof Error 
-        ? error.message 
-        : 'Failed to sign in. Please check your credentials and try again.';
-      setError(message);
-      setLoading(false);
+      if (mounted) {
+        const message = error instanceof Error 
+          ? error.message.includes('Invalid login credentials')
+            ? 'Invalid email or password'
+            : error.message
+          : 'Failed to sign in';
+        setError(message);
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      mounted = false;
     }
   };
 
