@@ -78,41 +78,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
+        if (!mounted) return;
+        
         if (!session?.user) {
           clearAuthState();
+          setLoading(false);
           return;
         }
-        
-        if (!mounted) return;
         
         setUser(session.user);
         await fetchProfile(session.user.id);
         const adminStatus = await checkIsAdmin(session.user.id);
         setIsAdmin(adminStatus);
+        setLoading(false);
       } catch (error) {
         console.error('Error initializing auth:', error);
         clearAuthState();
-      } finally {
-        mounted && setLoading(false);
+        setLoading(false);
       }
     };
 
     initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       if (event === 'SIGNED_OUT' || !session?.user) {
         clearAuthState();
         setLoading(false);
         return;
       }
 
-      if (!mounted) return;
-
       setUser(session.user);
       await fetchProfile(session.user.id);
       const adminStatus = await checkIsAdmin(session.user.id);
       setIsAdmin(adminStatus);
-      mounted && setLoading(false);
+      setLoading(false);
     });
 
     return () => {

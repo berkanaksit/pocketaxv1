@@ -35,17 +35,22 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
       if (!email || !email.includes('@')) {
         setError('Please enter a valid email address');
+        setLoading(false);
         return;
       }
 
       if (!password) {
         setError('Please enter your password');
+        setLoading(false);
         return;
       }
+
+      // Clear any existing sessions first
+      await supabase.auth.signOut();
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -56,7 +61,7 @@ const LoginPage: React.FC = () => {
         throw error;
       }
 
-      if (data.session?.access_token) {
+      if (data?.session) {
         toast.success('Welcome back!');
         navigate('/dashboard');
       } else {
