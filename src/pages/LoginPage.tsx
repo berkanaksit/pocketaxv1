@@ -15,9 +15,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    let mounted = true;
-
+    
     try {
       // First check if the email is empty or invalid
       if (!email || !email.includes('@')) {
@@ -42,26 +40,22 @@ const LoginPage: React.FC = () => {
         throw error;
       }
 
-      if (mounted) {
-        if (data.session) {
-          toast.success('Welcome back!');
-          navigate('/dashboard');
-        }
+      if (!data.session) {
+        throw new Error('No session returned from authentication');
       }
+      
+      toast.success('Welcome back!');
+      navigate('/dashboard');
     } catch (error) {
-      if (mounted) {
-        const message = error instanceof Error 
-          ? error.message.includes('Invalid login credentials')
-            ? 'Invalid email or password'
-            : error.message
-          : 'Failed to sign in';
-        setError(message);
-        setLoading(false);
-      }
-    }
-
-    return () => {
-      mounted = false;
+      const message = error instanceof Error 
+        ? error.message.includes('Invalid login credentials')
+          ? 'Invalid email or password'
+          : error.message
+        : 'Failed to sign in';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 

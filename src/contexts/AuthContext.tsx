@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase, checkIsAdmin } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import toast from 'react-hot-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Database['public']['Tables']['users_profile']['Row'] | null>(null);
+
+  const clearAuthState = () => {
+    setUser(null);
+    setIsAdmin(false);
+    setProfile(null);
+  };
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -56,11 +63,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      setUser(null);
-      setIsAdmin(false);
-      setProfile(null);
+      clearAuthState();
+      toast.success('Signed out successfully');
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Failed to sign out');
     }
   };
 
@@ -70,14 +77,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initialize = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (mounted && session?.user) {
-          setUser(session.user);
-          const adminStatus = await checkIsAdmin(session.user.id);
-          setIsAdmin(adminStatus);
-          await fetchProfile(session.user.id);
+        
+        if (!mounted) return;
+        
+        if (!session?.user) {
+          clearAuthState();
+          return;
         }
+        
+        setUser(session.user);
+        const adminStatus = await checkIsAdmin(session.user.id);
+        setIsAdmin(adminStatus);
+        await fetchProfile(session.user.id);
       } catch (error) {
         console.error('Error initializing auth:', error);
+        clearAuthState();
       } finally {
         if (mounted) {
           setLoading(false);
@@ -90,16 +104,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setIsAdmin(false);
-        setProfile(null);
-      } else if (session?.user) {
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        clearAuthState();
+      } else {
         setUser(session.user);
         const adminStatus = await checkIsAdmin(session.user.id);
         setIsAdmin(adminStatus);
         await fetchProfile(session.user.id);
       }
+      
       setLoading(false);
     });
 
