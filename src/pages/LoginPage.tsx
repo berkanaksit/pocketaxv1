@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -9,7 +9,27 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetDisabled, setResetDisabled] = useState(false);
+  const [resetCountdown, setResetCountdown] = useState(0);
   const navigate = useNavigate();
+
+  const startResetCountdown = useCallback(() => {
+    setResetDisabled(true);
+    setResetCountdown(60);
+    
+    const interval = setInterval(() => {
+      setResetCountdown((current) => {
+        if (current <= 1) {
+          clearInterval(interval);
+          setResetDisabled(false);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +76,31 @@ const LoginPage: React.FC = () => {
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setError('Please enter your email address to reset password');
+      return;
+    }
+
+    if (resetDisabled) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      toast.success('Password reset email sent! Please check your inbox.');
+      startResetCountdown();
+    } catch (error: any) {
+      if (error.status === 429) {
+        toast.error('Please wait before requesting another password reset');
+        startResetCountdown();
+      } else {
+        toast.error('Failed to send password reset email');
+      }
     }
   };
 
@@ -147,22 +192,15 @@ const LoginPage: React.FC = () => {
               <div className="text-sm">
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (!email) {
-                      setError('Please enter your email address to reset password');
-                      return;
-                    }
-                    try {
-                      const { error } = await supabase.auth.resetPasswordForEmail(email);
-                      if (error) throw error;
-                      toast.success('Password reset email sent! Please check your inbox.');
-                    } catch (error) {
-                      toast.error('Failed to send password reset email');
-                    }
-                  }}
-                  className="font-medium text-primary-600 hover:text-primary-500"
+                  onClick={handlePasswordReset}
+                  disabled={resetDisabled}
+                  className={`font-medium text-primary-600 hover:text-primary-500 ${
+                    resetDisabled ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Forgot your password?
+                  {resetDisabled 
+                    ? `Try again in ${resetCountdown}s` 
+                    : 'Forgot your password?'}
                 </button>
               </div>
             </div>
