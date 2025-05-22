@@ -77,12 +77,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initialize = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!mounted) return;
         
         if (!session?.user) {
           clearAuthState();
           return;
         }
+        
+        if (!mounted) return;
         
         setUser(session.user);
         await fetchProfile(session.user.id);
@@ -92,27 +93,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error initializing auth:', error);
         clearAuthState();
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        mounted && setLoading(false);
       }
     };
 
     initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
       if (event === 'SIGNED_OUT' || !session?.user) {
         clearAuthState();
-      } else {
-        setUser(session.user);
-        await fetchProfile(session.user.id);
-        const adminStatus = await checkIsAdmin(session.user.id);
-        setIsAdmin(adminStatus);
+        setLoading(false);
+        return;
       }
-      
-      setLoading(false);
+
+      if (!mounted) return;
+
+      setUser(session.user);
+      await fetchProfile(session.user.id);
+      const adminStatus = await checkIsAdmin(session.user.id);
+      setIsAdmin(adminStatus);
+      mounted && setLoading(false);
     });
 
     return () => {

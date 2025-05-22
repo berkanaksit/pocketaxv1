@@ -39,13 +39,11 @@ const LoginPage: React.FC = () => {
     try {
       if (!email || !email.includes('@')) {
         setError('Please enter a valid email address');
-        setLoading(false);
         return;
       }
 
       if (!password) {
         setError('Please enter your password');
-        setLoading(false);
         return;
       }
 
@@ -58,7 +56,7 @@ const LoginPage: React.FC = () => {
         throw error;
       }
 
-      if (data?.session) {
+      if (data.session?.access_token) {
         toast.success('Welcome back!');
         navigate('/dashboard');
       } else {
