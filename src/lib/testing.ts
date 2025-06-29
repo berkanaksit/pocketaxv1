@@ -40,3 +40,4 @@ export function validateBypassCode(code: string): boolean {
   console.log('[TEST BYPASS ATTEMPT]', attempt);
 
   return isValid;
+}
