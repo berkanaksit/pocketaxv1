@@ -76,16 +76,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initialize = async () => {
       try {
+        console.log('AuthContext: Initializing...');
         const { data: { session } } = await supabase.auth.getSession();
+        
+        console.log('AuthContext: Session check result:', {
+          hasSession: !!session,
+          hasUser: !!session?.user,
+          userId: session?.user?.id
+        });
         
         if (!mounted) return;
         
         if (!session?.user) {
+          console.log('AuthContext: No session found');
           clearAuthState();
           setLoading(false);
           return;
         }
         
+        console.log('AuthContext: Setting user and fetching profile');
         setUser(session.user);
         await fetchProfile(session.user.id);
         const adminStatus = await checkIsAdmin(session.user.id);
@@ -101,14 +110,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('AuthContext: Auth state changed:', event, {
+        hasSession: !!session,
+        hasUser: !!session?.user
+      });
+      
       if (!mounted) return;
 
       if (event === 'SIGNED_OUT' || !session?.user) {
+        console.log('AuthContext: User signed out or no session');
         clearAuthState();
         setLoading(false);
         return;
       }
 
+      console.log('AuthContext: User signed in, updating state');
       setUser(session.user);
       await fetchProfile(session.user.id);
       const adminStatus = await checkIsAdmin(session.user.id);

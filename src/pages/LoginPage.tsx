@@ -9,99 +9,121 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resetDisabled, setResetDisabled] = useState(false);
-  const [resetCountdown, setResetCountdown] = useState(0);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const navigate = useNavigate();
-
-  const startResetCountdown = useCallback(() => {
-    setResetDisabled(true);
-    setResetCountdown(60);
-    
-    const interval = setInterval(() => {
-      setResetCountdown((current) => {
-        if (current <= 1) {
-          clearInterval(interval);
-          setResetDisabled(false);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setDebugInfo('');
 
     try {
+      // Basic validation
       if (!email || !email.includes('@')) {
-        setError('Please enter a valid email address');
-        setLoading(false);
-        return;
+        throw new Error('Please enter a valid email address');
       }
 
-      if (!password) {
-        setError('Please enter your password');
-        setLoading(false);
-        return;
+      if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
       }
 
-      // Clear any existing sessions first
+      setDebugInfo('Attempting to sign in...');
+      
+      // Clear any existing session first
       await supabase.auth.signOut();
+      
+      setDebugInfo('Signing in with credentials...');
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
       });
 
-      if (error) {
-        throw error;
+      setDebugInfo(`Sign in response: ${JSON.stringify({ 
+        hasUser: !!data?.user, 
+        hasSession: !!data?.session,
+        error: signInError?.message 
+      })}`);
+
+      if (signInError) {
+        console.error('Sign in error:', signInError);
+        throw new Error(signInError.message);
       }
 
-      if (data?.session) {
-        toast.success('Welcome back!');
-        navigate('/dashboard');
-      } else {
-        throw new Error('Authentication failed');
+      if (!data?.user) {
+        throw new Error('No user returned from authentication');
       }
-    } catch (error) {
-      const message = error instanceof Error 
-        ? error.message.includes('Invalid login credentials')
-          ? 'Invalid email or password'
-          : error.message
-        : 'Failed to sign in';
-      setError(message);
-      toast.error(message);
+
+      if (!data?.session) {
+        throw new Error('No session created');
+      }
+
+      setDebugInfo('Login successful, redirecting...');
+      toast.success('Welcome back!');
+      
+      // Small delay to ensure session is properly set
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 100);
+
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      let errorMessage = 'Failed to sign in';
+      
+      if (error.message.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'Please check your email and click the confirmation link';
+      } else if (error.message.includes('rate')) {
+        errorMessage = 'Too many attempts. Please wait a moment and try again';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setDebugInfo(`Error: ${error.message}`);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handlePasswordReset = async () => {
-    if (!email) {
-      setError('Please enter your email address to reset password');
-      return;
-    }
-
-    if (resetDisabled) {
+    if (!email || !email.includes('@')) {
+      setError('Please enter your email address first');
       return;
     }
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      
       if (error) throw error;
-      toast.success('Password reset email sent! Please check your inbox.');
-      startResetCountdown();
+      
+      toast.success('Password reset email sent! Check your inbox.');
     } catch (error: any) {
-      if (error.status === 429) {
+      console.error('Password reset error:', error);
+      if (error.message.includes('rate')) {
         toast.error('Please wait before requesting another password reset');
-        startResetCountdown();
       } else {
         toast.error('Failed to send password reset email');
       }
+    }
+  };
+
+  const testConnection = async () => {
+    try {
+      setDebugInfo('Testing Supabase connection...');
+      const { data, error } = await supabase.auth.getSession();
+      setDebugInfo(`Connection test: ${JSON.stringify({ 
+        hasSession: !!data?.session,
+        error: error?.message 
+      })}`);
+    } catch (error: any) {
+      setDebugInfo(`Connection error: ${error.message}`);
     }
   };
 
@@ -136,6 +158,12 @@ const LoginPage: React.FC = () => {
                     <p className="text-sm text-red-700">{error}</p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {debugInfo && (
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <p className="text-xs text-blue-700 font-mono">{debugInfo}</p>
               </div>
             )}
 
@@ -194,14 +222,9 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handlePasswordReset}
-                  disabled={resetDisabled}
-                  className={`font-medium text-primary-600 hover:text-primary-500 ${
-                    resetDisabled ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className="font-medium text-primary-600 hover:text-primary-500"
                 >
-                  {resetDisabled 
-                    ? `Try again in ${resetCountdown}s` 
-                    : 'Forgot your password?'}
+                  Forgot your password?
                 </button>
               </div>
             </div>
@@ -222,7 +245,24 @@ const LoginPage: React.FC = () => {
                 )}
               </button>
             </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={testConnection}
+                className="w-full text-xs text-gray-500 hover:text-gray-700"
+              >
+                Test Connection
+              </button>
+            </div>
           </form>
+
+          {/* Quick test credentials for development */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-xs text-gray-500 text-center">
+              For testing, try creating a new account first or check console for debug info
+            </p>
+          </div>
         </div>
       </div>
     </div>

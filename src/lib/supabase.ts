@@ -13,11 +13,16 @@ export const supabase = createClient<Database>(
       persistSession: true, 
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storage: localStorage,
-      storageKey: 'supabase.auth.token'
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined
     }
   }
 );
+
+// Log configuration for debugging
+console.log('Supabase configuration:', {
+  url: import.meta.env.VITE_SUPABASE_URL ? 'Set' : 'Missing',
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Set' : 'Missing'
+});
 
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   const { data, error } = await supabase
