@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Shield, Key } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isTestingBypassEnabled, validateBypassCode } from '../lib/testing';
 import toast from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
@@ -10,7 +11,11 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [bypassCode, setBypassCode] = useState('');
+  const [bypassLoading, setBypassLoading] = useState(false);
   const navigate = useNavigate();
+
+  const bypassEnabled = isTestingBypassEnabled();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +95,34 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  const handleBypass = async () => {
+    if (!bypassCode.trim()) {
+      toast.error('Please enter a bypass code');
+      return;
+    }
+
+    setBypassLoading(true);
+    
+    try {
+      if (validateBypassCode(bypassCode.trim())) {
+        toast.success('Bypass activated! Redirecting to dashboard...');
+        console.log('[BYPASS] Development bypass used');
+        
+        // Navigate directly to dashboard
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 500);
+      } else {
+        toast.error('Invalid bypass code');
+        setBypassCode('');
+      }
+    } catch (error) {
+      toast.error('Bypass failed');
+      console.error('[BYPASS] Error:', error);
+    } finally {
+      setBypassLoading(false);
+    }
+  };
   const handlePasswordReset = async () => {
     if (!email || !email.includes('@')) {
       setError('Please enter your email address first');
@@ -146,6 +179,23 @@ const LoginPage: React.FC = () => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        {/* Development Bypass Warning */}
+        {bypassEnabled && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <Shield className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-800 font-medium">Development Mode</p>
+                <p className="text-xs text-yellow-700 mt-1">
+                  Login bypass is active for testing purposes only
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white py-8 px-4 shadow-sm sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
@@ -257,10 +307,57 @@ const LoginPage: React.FC = () => {
             </div>
           </form>
 
+          {/* Development Bypass Section */}
+          {bypassEnabled && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                <div className="flex items-center mb-3">
+                  <Key className="h-5 w-5 text-orange-600 mr-2" />
+                  <h3 className="text-sm font-medium text-orange-800">Development Bypass</h3>
+                </div>
+                <p className="text-xs text-orange-700 mb-3">
+                  Skip login for development and testing purposes
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Enter bypass code"
+                      value={bypassCode}
+                      onChange={(e) => setBypassCode(e.target.value)}
+                      className="block w-full px-3 py-2 border border-orange-300 rounded-md shadow-sm placeholder-orange-400 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && handleBypass()}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBypass}
+                    disabled={bypassLoading || !bypassCode.trim()}
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {bypassLoading ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Activating...
+                      </div>
+                    ) : (
+                      'Bypass Login'
+                    )}
+                  </button>
+                  <p className="text-xs text-orange-600 text-center">
+                    ⚠️ This bypass will be automatically disabled in production
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Quick test credentials for development */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className={`${bypassEnabled ? 'mt-4' : 'mt-6'} pt-6 border-t border-gray-200`}>
             <p className="text-xs text-gray-500 text-center">
-              For testing, try creating a new account first or check console for debug info
+              {bypassEnabled 
+                ? 'Use bypass code: DEV_BYPASS_2026' 
+                : 'For testing, try creating a new account first or check console for debug info'
+              }
             </p>
           </div>
         </div>

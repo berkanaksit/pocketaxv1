@@ -1,8 +1,8 @@
 import dayjs from 'dayjs';
 
 // Testing bypass configuration
-const BYPASS_EXPIRY = '2025-05-05'; // Expiry date for the bypass
-const BYPASS_CODE = 'TEST_BYPASS_2025'; // Secure bypass code
+const BYPASS_EXPIRY = '2026-12-31'; // Expiry date for the bypass
+const BYPASS_CODE = 'DEV_BYPASS_2026'; // Secure bypass code
 
 interface BypassAttempt {
   timestamp: string;
@@ -40,4 +40,3 @@ export function validateBypassCode(code: string): boolean {
   console.log('[TEST BYPASS ATTEMPT]', attempt);
 
   return isValid;
-}
