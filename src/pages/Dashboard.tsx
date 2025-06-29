@@ -67,11 +67,6 @@ const Dashboard: React.FC = () => {
         .eq('status', 'processed');
       
       // Fetch transactions count
-      const { count: transactionsCount } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .in('statement_id', []);
-
       // For now, get transactions count through bank statements
       const { data: statementsWithTransactions } = await supabase
         .from('bank_statements')
