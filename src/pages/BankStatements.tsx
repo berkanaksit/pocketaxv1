@@ -442,77 +442,89 @@ const BankStatements: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Uploaded Statements</h2>
             
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Summary</h3>
-              <div className="space-y-4">
-                {processedStatements.map(statement => (
-                  <div key={statement.id} className="border border-gray-200 rounded-md p-3">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-gray-900">
-                          {statement.bank_name || 'Bank Statement'}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {statement.statement_period_start && statement.statement_period_end
-                            ? `${statement.statement_period_start} to ${statement.statement_period_end}`
-                            : 'Processing period information...'
-                          }
-                        </p>
-                        <div className="mt-1 flex items-center text-xs">
-                          <span className={`flex items-center ${
-                            statement.status === 'processed' ? 'text-green-600' : 
-                            statement.status === 'processing' ? 'text-blue-600' :
-                            statement.status === 'failed' ? 'text-red-600' : 'text-gray-600'
-                          }`}>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            {statement.status === 'processed' ? 'Processed' :
-                             statement.status === 'processing' ? 'Processing' :
-                             statement.status === 'failed' ? 'Failed' : 'Pending'}
-                          </span>
-                          <span className="ml-2 text-gray-500">
-                            {statement.transaction_count || 0} transactions
-                    <span className="text-gray-500">Files Uploaded</span>
+            {processedStatements.length > 0 ? (
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Summary</h3>
+                <div className="space-y-4">
+                  {processedStatements.map(statement => (
+                    <div key={statement.id} className="border border-gray-200 rounded-md p-3">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <FileText className="h-5 w-5 text-gray-400" />
                         </div>
-                      {uploads.filter(u => u.status === 'success').length} of {uploads.length}
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-gray-900">{statement.bank}</h3>
+                          <p className="text-xs text-gray-500">{statement.period}</p>
+                          <div className="mt-1 flex items-center text-xs">
+                            <span className="flex items-center text-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Processed
+                            </span>
+                            <span className="ml-2 text-gray-500">
+                              {statement.transaction_count} transactions
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="text-center py-6">
                 <AlertCircle className="mx-auto h-10 w-10 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-500">No statements uploaded yet</p>
-                <p className="text-xs text-gray-400 mt-1">Upload your first bank statement to get started</p>
               </div>
             )}
             
-                  {uploads.length > 0 && (
-                    <div className="mt-2 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-primary-600 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${uploads.length > 0 ? (uploads.filter(u => u.status === 'success').length / uploads.length) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                  )}
+            <div className="mt-6">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">Files Uploaded</span>
+                <span className="text-gray-900">
+                  {uploads.filter(u => u.status === 'success').length} of {uploads.length}
+                </span>
+              </div>
+              
+              {uploads.length > 0 && (
+                <div className="mt-2 bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${uploads.length > 0 ? (uploads.filter(u => u.status === 'success').length / uploads.length) * 100 : 0}%`,
+                    }}
+                  />
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Processing Status</span>
-                  <span className={`text-sm px-2 py-1 rounded-full ${
-                    processingStatus === 'complete' 
-                      ? 'bg-green-100 text-green-800' 
-                      : processingStatus === 'processing'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {processingStatus === 'complete' ? 'Complete' :
-                     processingStatus === 'processing' ? 'Processing' : 'Ready'}
-                  </span>
+              )}
+              
+              <div className="flex justify-between items-center mt-4">
+                <span className="text-sm font-medium text-gray-700">Processing Status</span>
+                <span className={`text-sm px-2 py-1 rounded-full ${
+                  processingStatus === 'complete' 
+                    ? 'bg-green-100 text-green-800' 
+                    : processingStatus === 'processing'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {processingStatus === 'complete' ? 'Complete' :
+                   processingStatus === 'processing' ? 'Processing' : 'Ready'}
+                </span>
+              </div>
+              
+              {processedStatements.length > 0 && (
+                <div className="pt-3 border-t border-gray-200 mt-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Total Statements</span>
+                    <span className="text-gray-900">{processedStatements.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-gray-500">Total Transactions</span>
+                    <span className="text-gray-900">
+                      {processedStatements.reduce((sum, statement) => sum + (statement.transaction_count || 0), 0)}
+                    </span>
+                  </div>
                 </div>
-                {processedStatements.length > 0 && (
+              )}
+            </div>
           </div>
         </div>
       </div>
