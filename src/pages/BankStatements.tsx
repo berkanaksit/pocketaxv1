@@ -118,8 +118,21 @@ const BankStatements: React.FC = () => {
 
     setFiles(prev => [...prev, ...validFiles]);
 
+    // Process each valid file
     for (const file of validFiles) {
+      // Add file to uploads list with initial status
+      setUploads(prev => [...prev, {
+        name: file.name,
+        status: 'uploading',
+        progress: 0
+      }]);
+      
       try {
+        // Update progress for this file
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { ...upload, progress: 10 } : upload
+        ));
+        
         // Upload to storage
         const filePath = `${user?.id}/${Date.now()}-${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -127,6 +140,10 @@ const BankStatements: React.FC = () => {
           .upload(filePath, file);
 
         if (uploadError) throw uploadError;
+
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { ...upload, progress: 30 } : upload
+        ));
 
         // Get file URL
         const { data: { publicUrl } } = supabase.storage
@@ -138,17 +155,24 @@ const BankStatements: React.FC = () => {
           .from('bank_statements')
           .insert({
             user_id: user?.id,
+            submission_id: user?.id, // For now, use user_id as submission_id
             filename: file.name,
             file_size: file.size,
             file_type: file.type,
             file_path: filePath,
-            status: 'processing'
+            status: 'pending'
           });
 
         if (dbError) throw dbError;
 
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { ...upload, progress: 50 } : upload
+        ));
+
         // Process the file
         setProcessingFile(file.name);
+        setProcessingStatus('processing');
+        
         const fileContent = await file.text();
         
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-statement`, {
@@ -158,11 +182,15 @@ const BankStatements: React.FC = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            statement_id: statementData[0].id,
+            statement_id: statementData?.[0]?.id,
             file_type: file.type,
             content: fileContent
           })
         });
+
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { ...upload, progress: 80 } : upload
+        ));
 
         if (!response.ok) {
           const error = await response.json();
@@ -175,74 +203,38 @@ const BankStatements: React.FC = () => {
           throw new Error(result.error || 'Failed to process statement');
         }
 
+        // Mark this file as complete
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { 
+            ...upload, 
+            progress: 100, 
+            status: 'success' 
+          } : upload
+        ));
+
         toast.success(`Processed ${result.transaction_count} transactions from ${file.name}`);
 
         // Refresh statements list
         await fetchStatements();
 
-        setProcessingFile(null);
-        setProcessingStatus('complete');
-
-        // Update UI
-        setUploads(prev => [
-          ...prev,
-          {
-            name: file.name,
-            status: 'success',
-            progress: 100
-          }
-        ]);
       } catch (error) {
+        // Mark this file as failed
+        setUploads(prev => prev.map(upload => 
+          upload.name === file.name ? { 
+            ...upload, 
+            status: 'error',
+            progress: 0
+          } : upload
+        ));
+        
         toast.error(`Failed to upload ${file.name}`);
+        console.error(`Upload error for ${file.name}:`, error);
       }
     }
     
-    // Simulate upload process
-    setProcessingStatus('processing');
-    const newUploads = newFiles.map(file => ({
-      name: file.name,
-      status: 'uploading' as const,
-      progress: 0
-    }));
-    
-    setUploads(prev => [...prev, ...newUploads]);
-    
-    // Simulate progress and success
-    newUploads.forEach((upload, index) => {
-      const intervalId = setInterval(() => {
-        setUploads(prevUploads => {
-          const updatedUploads = [...prevUploads];
-          const uploadIndex = updatedUploads.findIndex(u => u.name === upload.name && u.status === 'uploading');
-          
-          if (uploadIndex !== -1) {
-            const newProgress = updatedUploads[uploadIndex].progress + 10;
-            
-            if (newProgress >= 100) {
-              updatedUploads[uploadIndex] = {
-                ...updatedUploads[uploadIndex],
-                progress: 100,
-                status: 'success',
-              };
-              clearInterval(intervalId);
-              
-              // If this is the last upload, start processing
-              if (uploadIndex === newUploads.length - 1) {
-                setTimeout(() => {
-                  setProcessingStatus('complete');
-                }, 1500);
-              }
-            } else {
-              updatedUploads[uploadIndex] = {
-                ...updatedUploads[uploadIndex],
-                progress: newProgress
-              };
-            }
-          }
-          
-          return updatedUploads;
-        });
-      }, 300 * (index + 1)); // Stagger the uploads
-    });
+    // Update processing status after all files are processed
+    setProcessingFile(null);
+    setProcessingStatus(validFiles.length > 0 ? 'complete' : 'idle');
   };
 
   return (
@@ -450,7 +442,7 @@ const BankStatements: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h2 className="text-lg font-medium text-gray-900 mb-4">Uploaded Statements</h2>
             
-            {processedStatements.length > 0 ? (
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Summary</h3>
               <div className="space-y-4">
                 {processedStatements.map(statement => (
                   <div key={statement.id} className="border border-gray-200 rounded-md p-3">
@@ -459,18 +451,31 @@ const BankStatements: React.FC = () => {
                         <FileText className="h-5 w-5 text-gray-400" />
                       </div>
                       <div className="ml-3">
-                        <h3 className="text-sm font-medium text-gray-900">{statement.bank}</h3>
-                        <p className="text-xs text-gray-500">{statement.period}</p>
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {statement.bank_name || 'Bank Statement'}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {statement.statement_period_start && statement.statement_period_end
+                            ? `${statement.statement_period_start} to ${statement.statement_period_end}`
+                            : 'Processing period information...'
+                          }
+                        </p>
                         <div className="mt-1 flex items-center text-xs">
-                          <span className="flex items-center text-green-600">
+                          <span className={`flex items-center ${
+                            statement.status === 'processed' ? 'text-green-600' : 
+                            statement.status === 'processing' ? 'text-blue-600' :
+                            statement.status === 'failed' ? 'text-red-600' : 'text-gray-600'
+                          }`}>
                             <CheckCircle className="h-3 w-3 mr-1" />
-                            Processed
+                            {statement.status === 'processed' ? 'Processed' :
+                             statement.status === 'processing' ? 'Processing' :
+                             statement.status === 'failed' ? 'Failed' : 'Pending'}
                           </span>
                           <span className="ml-2 text-gray-500">
-                            {statement.transaction_count} transactions
-                          </span>
+                            {statement.transaction_count || 0} transactions
+                    <span className="text-gray-500">Files Uploaded</span>
                         </div>
-                      </div>
+                      {uploads.filter(u => u.status === 'success').length} of {uploads.length}
                     </div>
                   </div>
                 ))}
@@ -479,25 +484,35 @@ const BankStatements: React.FC = () => {
               <div className="text-center py-6">
                 <AlertCircle className="mx-auto h-10 w-10 text-gray-400" />
                 <p className="mt-2 text-sm text-gray-500">No statements uploaded yet</p>
+                <p className="text-xs text-gray-400 mt-1">Upload your first bank statement to get started</p>
               </div>
             )}
             
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Total Statements</span>
-                <span className="text-sm text-gray-900">{processedStatements.length}</span>
-              </div>
-              <div className="mt-2 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Total Transactions</span>
-                <span className="text-sm text-gray-900">
-                  {processedStatements.reduce((sum, statement) => sum + statement.transaction_count, 0)}
-                </span>
-              </div>
-              <div className="mt-2 flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-700">Coverage</span>
-                <span className="text-sm text-green-600">Complete</span>
-              </div>
-            </div>
+                  {uploads.length > 0 && (
+                    <div className="mt-2 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-primary-600 h-2 rounded-full transition-all duration-300"
+                        style={{
+                          width: `${uploads.length > 0 ? (uploads.filter(u => u.status === 'success').length / uploads.length) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Processing Status</span>
+                  <span className={`text-sm px-2 py-1 rounded-full ${
+                    processingStatus === 'complete' 
+                      ? 'bg-green-100 text-green-800' 
+                      : processingStatus === 'processing'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {processingStatus === 'complete' ? 'Complete' :
+                     processingStatus === 'processing' ? 'Processing' : 'Ready'}
+                  </span>
+                </div>
+                {processedStatements.length > 0 && (
           </div>
         </div>
       </div>
