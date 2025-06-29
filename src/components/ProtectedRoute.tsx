@@ -8,9 +8,9 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, isBypassActive } = useAuth();
 
-  console.log('ProtectedRoute:', { user, loading, isAdmin, requireAdmin });
+  console.log('ProtectedRoute:', { user, loading, isAdmin, isBypassActive, requireAdmin });
 
   if (loading) {
     return (
@@ -20,12 +20,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
     );
   }
 
-  if (requireAdmin && !isAdmin) {
+  if (requireAdmin && !isAdmin && !isBypassActive) {
     console.log('Access denied: Admin privileges required');
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!user) {
+  if (!user && !isBypassActive) {
     console.log('Access denied: No authenticated user');
     return <Navigate to="/login" replace />;
   }

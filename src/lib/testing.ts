@@ -25,6 +25,7 @@ export function isTestingBypassEnabled(): boolean {
 
 export function validateBypassCode(code: string): boolean {
   if (!isTestingBypassEnabled()) {
+    console.log('[BYPASS] Bypass not enabled - environment or expiry check failed');
     return false;
   }
 
@@ -38,6 +39,12 @@ export function validateBypassCode(code: string): boolean {
   };
 
   console.log('[TEST BYPASS ATTEMPT]', attempt);
+  
+  if (isValid) {
+    console.log('[BYPASS] Valid bypass code provided');
+  } else {
+    console.log('[BYPASS] Invalid bypass code. Expected:', BYPASS_CODE);
+  }
 
   return isValid;
 }

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Shield, Key } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isTestingBypassEnabled, validateBypassCode } from '../lib/testing';
+import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
@@ -14,6 +15,7 @@ const LoginPage: React.FC = () => {
   const [bypassCode, setBypassCode] = useState('');
   const [bypassLoading, setBypassLoading] = useState(false);
   const navigate = useNavigate();
+  const { activateBypass } = useAuth();
 
   const bypassEnabled = isTestingBypassEnabled();
 
@@ -105,20 +107,22 @@ const LoginPage: React.FC = () => {
     
     try {
       if (validateBypassCode(bypassCode.trim())) {
+        console.log('[BYPASS] Valid bypass code, activating bypass mode');
+        activateBypass();
         toast.success('Bypass activated! Redirecting to dashboard...');
-        console.log('[BYPASS] Development bypass used');
         
-        // Navigate directly to dashboard
+        // Navigate to dashboard after bypass is activated
         setTimeout(() => {
           navigate('/dashboard', { replace: true });
-        }, 500);
+        }, 100);
       } else {
+        console.log('[BYPASS] Invalid bypass code provided');
         toast.error('Invalid bypass code');
         setBypassCode('');
       }
     } catch (error) {
+      console.error('[BYPASS] Bypass activation failed:', error);
       toast.error('Bypass failed');
-      console.error('[BYPASS] Error:', error);
     } finally {
       setBypassLoading(false);
     }
