@@ -48,7 +48,7 @@ const BankStatements: React.FC = () => {
           statement_period_start,
           statement_period_end,
           status,
-          transactions(count)
+          transaction_count
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
@@ -467,7 +467,7 @@ const BankStatements: React.FC = () => {
                             Processed
                           </span>
                           <span className="ml-2 text-gray-500">
-                            {statement.transactions} transactions
+                            {statement.transaction_count} transactions
                           </span>
                         </div>
                       </div>
@@ -490,7 +490,7 @@ const BankStatements: React.FC = () => {
               <div className="mt-2 flex justify-between items-center">
                 <span className="text-sm font-medium text-gray-700">Total Transactions</span>
                 <span className="text-sm text-gray-900">
-                  {processedStatements.reduce((sum, statement) => sum + statement.transactions, 0)}
+                  {processedStatements.reduce((sum, statement) => sum + statement.transaction_count, 0)}
                 </span>
               </div>
               <div className="mt-2 flex justify-between items-center">
